@@ -8,6 +8,15 @@ import (
 	"io"
 )
 
+func GenerateSymmetricKey() ([]byte, error) {
+	key := new([32]byte)
+	if _, err := io.ReadFull(rand.Reader, key[:]); err != nil {
+		return nil, err
+	}
+
+	return key[:], nil
+}
+
 func SymmetricEncrypt(secret, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(secret)
 	if err != nil {
@@ -17,7 +26,7 @@ func SymmetricEncrypt(secret, plaintext []byte) ([]byte, error) {
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, errors.New("SymmetricEncrypt: Error reading from rand")
+		return nil, err
 	}
 
 	stream := cipher.NewCFBEncrypter(block, iv)
