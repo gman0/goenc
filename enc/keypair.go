@@ -90,7 +90,7 @@ type KeyPair struct {
 	Private RSAPrivateKey
 }
 
-func GenerateKeyPair() KeyPair {
+func GenerateKeyPair() *KeyPair {
 	priv, err := rsa.GenerateKey(rand.Reader, KeyLength)
 	if err != nil {
 		panic(err)
@@ -101,7 +101,7 @@ func GenerateKeyPair() KeyPair {
 		panic(err)
 	}
 
-	return KeyPair{
+	return &KeyPair{
 		Private: RSAPrivateKey{priv},
 		Public:  RSAPublicKey{&priv.PublicKey},
 	}
