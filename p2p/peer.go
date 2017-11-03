@@ -7,5 +7,6 @@ import (
 
 type Peer struct {
 	Public enc.RSAPublicKey
+	Sk     *[enc.SymKeyLength]byte
 	Conn   net.Conn
 }
