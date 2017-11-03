@@ -15,32 +15,39 @@ func RecvPubKey(p *p2p.Peer) error {
 	return dec.Decode(&p.Public)
 }
 
-func GenerateAndSendSymKey(p *p2p.Peer) ([]byte, error) {
+func GenerateAndSendSymKey(p *p2p.Peer) error {
 	// Generate symmetric key
 	symKey, err := enc.GenerateSymmetricKey()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Encrypt the symmetric key
-	encSymKey, err := p.Public.Encrypt(symKey)
+	ciphertext, err := p.Public.Encrypt(symKey[:])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return symKey, gob.NewEncoder(p.Conn).Encode(&encSymKey)
+	if err := gob.NewEncoder(p.Conn).Encode(&ciphertext); err != nil {
+		return err
+	}
+
+	p.Sk = symKey
+	return nil
 }
 
-func RecvAndDecryptSymKey(p *p2p.Peer, selfKp *enc.KeyPair) ([]byte, error) {
-	var encKey []byte
-	dec := gob.NewDecoder(p.Conn)
-	if err := dec.Decode(&encKey); err != nil {
-		return nil, err
+func RecvAndDecryptSymKey(p *p2p.Peer, selfKp *enc.KeyPair) error {
+	var ciphertext []byte
+	if err := gob.NewDecoder(p.Conn).Decode(&ciphertext); err != nil {
+		return err
 	}
 
-	if key, err := selfKp.Private.Decrypt(encKey); err != nil {
-		return nil, err
+	if key, err := selfKp.Private.Decrypt(ciphertext); err != nil {
+		return err
 	} else {
-		return key, nil
+		p.Sk = new([enc.SymKeyLength]byte)
+		copy(p.Sk[:], key)
+
+		return nil
 	}
 }
