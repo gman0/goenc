@@ -8,49 +8,72 @@ import (
 	"io"
 )
 
-func GenerateSymmetricKey() ([]byte, error) {
-	key := new([32]byte)
+const (
+	SymKeyLength = 32
+	NonceLength  = 12
+)
+
+func GenerateSymmetricKey() (*[SymKeyLength]byte, error) {
+	key := new([SymKeyLength]byte)
 	if _, err := io.ReadFull(rand.Reader, key[:]); err != nil {
 		return nil, err
 	}
 
-	return key[:], nil
+	return key, nil
 }
 
-func SymmetricEncrypt(secret, plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(secret)
+func GenerateNonce() (*[NonceLength]byte, error) {
+	nonce := new([NonceLength]byte)
+	_, err := io.ReadFull(rand.Reader, nonce[:])
 	if err != nil {
 		return nil, err
 	}
 
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-
-	return ciphertext, nil
+	return nonce, nil
 }
 
-func SymmetricDecrypt(secret, ciphertext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(secret)
+func SymmetricEncrypt(secret *[SymKeyLength]byte, plaintext []byte) (ciphertext []byte, nonce *[NonceLength]byte, err error) {
+	block, err := aes.NewCipher(secret[:])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("SymmetricDecrypt: ciphertext block size is too small")
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
+	nonce, err = GenerateNonce()
+	if err != nil {
+		return nil, nil, err
+	}
 
-	stream := cipher.NewCFBDecrypter(block, iv)
-	// XORKeyStream works in-place if the both arguments are the same
-	stream.XORKeyStream(ciphertext, ciphertext)
+	ciphertext = gcm.Seal(nonce[:], nonce[:], plaintext, nil)
+	return ciphertext, nonce, nil
+}
 
-	return ciphertext, nil
+func SymmetricDecrypt(secret *[SymKeyLength]byte, ciphertext []byte) (plaintext []byte, nonce *[NonceLength]byte, err error) {
+	if len(ciphertext) <= NonceLength {
+		return nil, nil, errors.New("SymmetricDecrypt(): message too short")
+	}
+
+	block, err := aes.NewCipher(secret[:])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nonce = new([NonceLength]byte)
+	copy(nonce[:], ciphertext)
+
+	plaintext, err = gcm.Open(nil, nonce[:], ciphertext[NonceLength:], nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return plaintext, nonce, nil
 }
