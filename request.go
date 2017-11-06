@@ -1,10 +1,7 @@
 package goenc
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
-	"github.com/gman0/goenc/enc"
 	"github.com/gman0/goenc/p2p"
 	"net/http"
 	"os"
@@ -40,35 +37,17 @@ func NewRequest(file string) (*Request, error) {
 }
 
 func (r *Request) EncryptAndSend(p *p2p.Peer) error {
-	var buf bytes.Buffer
-	gob.NewEncoder(&buf).Encode(r)
-
-	ciphertext, _, err := enc.SymmetricEncrypt(p.Sk, buf.Bytes())
-	if err != nil {
-		return err
-	}
-
-	return p.ConnEnc.Encode(&ciphertext)
+	_, err := SymSend(p, r)
+	return err
 }
 
 func RecvAndDecryptRequest(p *p2p.Peer) (*Request, error) {
-	var ciphertext []byte
-	if err := p.ConnDec.Decode(&ciphertext); err != nil {
+	r := &Request{}
+	if _, err := SymRecv(p, r); err != nil {
 		return nil, err
 	}
 
-	plaintext, _, err := enc.SymmetricDecrypt(p.Sk, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	var r Request
-	buf := bytes.NewBuffer(plaintext)
-	if err = gob.NewDecoder(buf).Decode(&r); err != nil {
-		return nil, err
-	}
-
-	return &r, nil
+	return r, nil
 }
 
 func guessMimeType(path string) (string, error) {

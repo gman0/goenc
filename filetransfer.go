@@ -1,12 +1,9 @@
 package goenc
 
 import (
-	//"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	//"fmt"
-	"github.com/gman0/goenc/enc"
 	"github.com/gman0/goenc/p2p"
 	"io"
 	"os"
@@ -41,12 +38,7 @@ func SendFile(filepath string, p *p2p.Peer) ([]byte, error) {
 			return nil, err
 		}
 
-		ciphertext, nonce, err := enc.SymmetricEncrypt(p.Sk, buf[:])
-		if err != nil {
-			return nil, err
-		}
-
-		err = p.ConnEnc.Encode(&ciphertext)
+		nonce, err := SymSendByteSlice(p, buf[:])
 		if err != nil {
 			return nil, err
 		}
@@ -67,16 +59,10 @@ func RecvFile(filepath string, totalSz int64, p *p2p.Peer) ([]byte, error) {
 		sz   int64
 		hmac = sha256.New()
 		seq  uint32
-		buf  []byte
 	)
 
 	for sz < totalSz {
-		err := p.ConnDec.Decode(&buf)
-		if err != nil {
-			return nil, err
-		}
-
-		plaintext, nonce, err := enc.SymmetricDecrypt(p.Sk, buf[:])
+		plaintext, nonce, err := SymRecvByteSlice(p)
 		if err != nil {
 			return nil, err
 		}
