@@ -14,6 +14,10 @@ type Peer struct {
 	ConnDec *gob.Decoder
 }
 
+func NewPeer(c net.Conn) *Peer {
+	return &Peer{Conn: c, ConnEnc: gob.NewEncoder(c), ConnDec: gob.NewDecoder(c)}
+}
+
 func (p *Peer) Send(val interface{}) error {
 	return p.ConnEnc.Encode(val)
 }
