@@ -48,12 +48,12 @@ func (r *Request) EncryptAndSend(p *p2p.Peer) error {
 		return err
 	}
 
-	return gob.NewEncoder(p.Conn).Encode(&ciphertext)
+	return p.ConnEnc.Encode(&ciphertext)
 }
 
 func RecvAndDecryptRequest(p *p2p.Peer) (*Request, error) {
 	var ciphertext []byte
-	if err := gob.NewDecoder(p.Conn).Decode(&ciphertext); err != nil {
+	if err := p.ConnDec.Decode(&ciphertext); err != nil {
 		return nil, err
 	}
 
