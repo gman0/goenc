@@ -28,7 +28,7 @@ func GenerateAndSendSymKey(p *p2p.Peer) error {
 		return err
 	}
 
-	if err := gob.NewEncoder(p.Conn).Encode(&ciphertext); err != nil {
+	if err := p.ConnEnc.Encode(&ciphertext); err != nil {
 		return err
 	}
 
@@ -38,7 +38,7 @@ func GenerateAndSendSymKey(p *p2p.Peer) error {
 
 func RecvAndDecryptSymKey(p *p2p.Peer, selfKp *enc.KeyPair) error {
 	var ciphertext []byte
-	if err := gob.NewDecoder(p.Conn).Decode(&ciphertext); err != nil {
+	if err := p.ConnDec.Decode(&ciphertext); err != nil {
 		return err
 	}
 
