@@ -21,9 +21,9 @@ func main() {
 	kp := enc.GenerateKeyPair()
 	srv := p2p.New(*fPort, func(c net.Conn) {
 		fmt.Println("# New peer", c.RemoteAddr().String())
-		p := p2p.Peer{Conn: c}
+		p := p2p.NewPeer(c)
 
-		if err := goenc.HandleClientConnection(&p, kp); err != nil {
+		if err := goenc.HandleClientConnection(p, kp); err != nil {
 			panic(err)
 		}
 
@@ -84,9 +84,9 @@ func cmdSendFile(cmd []string, srv *p2p.Service, kp *enc.KeyPair) {
 		Port:    int(port),
 		Handler: func(c net.Conn) {
 			fmt.Println("# Connected to peer", c.RemoteAddr().String())
-			p := p2p.Peer{Conn: c}
+			p := p2p.NewPeer(c)
 
-			if err := goenc.HandleServerConnection(cmd[1], &p, kp); err != nil {
+			if err := goenc.HandleServerConnection(cmd[1], p, kp); err != nil {
 				panic(err)
 			}
 
