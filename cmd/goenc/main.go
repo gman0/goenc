@@ -60,6 +60,8 @@ func parseInput(in string, srv *p2p.Service, kp *enc.KeyPair) {
 		cmdAccept(args)
 	case "decline":
 		cmdDecline(args)
+	case "fingerprint":
+		cmdFingerprint(kp)
 	default:
 		fmt.Println("# Command not found")
 	}
@@ -100,11 +102,57 @@ func cmdSendFile(cmd []string, srv *p2p.Service, kp *enc.KeyPair) {
 	}
 }
 
+func overwriteFile() bool {
+	var answer string
+	for answer != "n" && answer != "y" {
+		fmt.Print("File already exists. Overwrite? [y/n]: ")
+		fmt.Scanf("%s", &answer)
+	}
+
+	if answer == "y" {
+		return true
+	}
+
+	return false
+}
+
 func cmdAccept(cmd []string) {
-	if len(cmd) != 1 {
-		fmt.Println("# Args := [REQUEST NUMBER]")
+	if len(cmd) != 2 {
+		fmt.Println("# Args := [REQUEST NUMBER] [DESTINATION]")
 		return
 	}
+
+	id, err := strconv.Atoi(cmd[0])
+	if err != nil {
+		fmt.Println("# Error while parsing the request number")
+		return
+	}
+
+	ar, err := goenc.GetAwaitingRequest(id)
+	if err != nil {
+		fmt.Println("#", err)
+		return
+	}
+
+	dst := cmd[1]
+	st, err := os.Stat(dst)
+	if err == nil {
+		if st.IsDir() {
+			dst += "/" + ar.Req.Name
+		} else {
+			if !overwriteFile() {
+				fmt.Println("# Won't overwrite, choose another file name")
+				return
+			}
+		}
+	} else {
+		if !os.IsNotExist(err) {
+			fmt.Println("# stat() failed:", err)
+			return
+		}
+	}
+
+	ar.RespChan <- goenc.Response{Accept: true, Dest: dst}
 }
 
 func cmdDecline(cmd []string) {
@@ -112,4 +160,8 @@ func cmdDecline(cmd []string) {
 		fmt.Println("# Args := [REQUEST NUMBER]")
 		return
 	}
+}
+
+func cmdFingerprint(kp *enc.KeyPair) {
+	goenc.PrintFingerprint(kp.Public)
 }
