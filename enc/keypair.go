@@ -1,6 +1,7 @@
 package enc
 
 import (
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -65,6 +66,18 @@ func (key *RSAPublicKey) ToPEM() ([]byte, error) {
 	}
 
 	return pem.EncodeToMemory(&block), nil
+}
+
+func (key *RSAPublicKey) Fingerprint() ([]byte, error) {
+	block, err := x509.MarshalPKIXPublicKey(key.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	h := md5.New()
+	h.Write(block)
+
+	return h.Sum(nil), nil
 }
 
 func ParsePublicKeyFromPEM(data []byte) (RSAPublicKey, error) {
