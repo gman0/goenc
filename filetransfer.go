@@ -74,15 +74,15 @@ func RecvFile(filepath string, totalSz int64, p *p2p.Peer) ([]byte, error) {
 
 		var n int64 = bufSize
 		if sz+bufSize > totalSz {
-			n = totalSz - sz
+			n = totalSz - sz + 4
 		}
 
-		_, err = f.Write(plaintext[4 : n+4])
+		_, err = f.Write(plaintext[4:n])
 		if err != nil {
 			return nil, err
 		}
 
-		sz += n
+		sz += n - 4
 		hmac.Write(nonce[:])
 	}
 
