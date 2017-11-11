@@ -1,22 +1,62 @@
 package goenc
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gman0/goenc/enc"
 	"github.com/gman0/goenc/p2p"
+	"os"
+	"sync"
 )
 
-/*
+type Response struct {
+	Accept bool
+	Dest   string
+}
+
 type AwaitingRequest struct {
-	Req    *Request
-	Answer chan bool
+	Req      *Request
+	RespChan chan Response
+	Resp     Response
+}
+
+func (ar *AwaitingRequest) WaitForResponse() bool {
+	ar.Resp = <-ar.RespChan
+	return ar.Resp.Accept
 }
 
 var (
+	mtx       = sync.Mutex{}
 	nextReqId = 0
-	reqs  = make(map[int]*Request)
+	reqs      = make(map[int]*AwaitingRequest)
 )
-*/
+
+func addAwaitingRequest(r *Request) (*AwaitingRequest, int) {
+	mtx.Lock()
+
+	ar := &AwaitingRequest{
+		Req:      r,
+		RespChan: make(chan Response),
+	}
+
+	id := nextReqId
+	nextReqId++
+	reqs[id] = ar
+	mtx.Unlock()
+
+	return ar, id
+}
+
+func GetAwaitingRequest(id int) (*AwaitingRequest, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	if r, ok := reqs[id]; !ok {
+		return nil, errors.New("Request not found")
+	} else {
+		return r, nil
+	}
+}
 
 // Called from server side
 func HandleClientConnection(p *p2p.Peer, kp *enc.KeyPair) error {
@@ -38,9 +78,16 @@ func HandleClientConnection(p *p2p.Peer, kp *enc.KeyPair) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(req)
 
-	hmac, err := RecvFile("/tmp/recv", req.Size, p)
+	ar, id := addAwaitingRequest(req)
+	PrintRequestInfo(id, req, p)
+
+	if !ar.WaitForResponse() {
+		fmt.Printf("> #%d declined, closing connection\n", id)
+		return nil
+	}
+
+	hmac, err := RecvFile(ar.Resp.Dest, req.Size, p)
 	if err != nil {
 		return err
 	}
@@ -51,8 +98,11 @@ func HandleClientConnection(p *p2p.Peer, kp *enc.KeyPair) error {
 	}
 
 	if err = p.Public.VerifySignature(hmac, sig); err != nil {
+		os.Remove(ar.Resp.Dest)
 		return err
 	}
+
+	fmt.Printf("> #%d finished, closing connection\n", id)
 
 	return nil
 }
@@ -79,7 +129,6 @@ func HandleServerConnection(filepath string, p *p2p.Peer, kp *enc.KeyPair) error
 		return err
 	}
 
-	fmt.Println(req)
 	if err = req.EncryptAndSend(p); err != nil {
 		return err
 	}
@@ -97,6 +146,8 @@ func HandleServerConnection(filepath string, p *p2p.Peer, kp *enc.KeyPair) error
 	if err = p.Send(sig); err != nil {
 		return err
 	}
+
+	fmt.Printf("> connection with %s (%s) closed\n", p.Conn.RemoteAddr(), filepath)
 
 	return nil
 }
