@@ -120,7 +120,7 @@ func HandleServerConnection(filepath string, p *p2p.Peer, kp *enc.KeyPair) error
 	}
 
 	// Send the encrypted symmetric key
-	if err := GenerateAndSendSymKey(p); err != nil {
+	if err := GenerateAndSendSymKey(p, kp); err != nil {
 		return err
 	}
 
