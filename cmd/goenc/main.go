@@ -42,11 +42,17 @@ func main() {
 		parseInput(scanner.Text(), srv, kp)
 		fmt.Print("goenc ")
 	}
+
+	srv.Shutdown()
 }
 
 func parseInput(in string, srv *p2p.Service, kp *enc.KeyPair) {
+	if in == "" {
+		return
+	}
+
 	cmd := strings.Split(in, " ")
-	if len(cmd) < 1 || in == "" {
+	if len(cmd) < 1 {
 		fmt.Println("# Input error")
 		return
 	}
